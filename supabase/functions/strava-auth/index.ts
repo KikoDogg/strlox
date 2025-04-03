@@ -19,7 +19,19 @@ serve(async (req) => {
   }
 
   try {
-    const { code, action, refresh_token } = await req.json();
+    // Parse request body
+    let requestData;
+    try {
+      requestData = await req.json();
+    } catch (e) {
+      console.error("Error parsing request body:", e);
+      return new Response(JSON.stringify({ error: "Invalid request body" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    
+    const { action, code, refresh_token, access_token, page, per_page } = requestData;
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     if (action === "exchange") {
@@ -41,8 +53,8 @@ serve(async (req) => {
       const data = await response.json();
       console.log("Token exchange response:", data);
       
-      if (data.errors) {
-        return new Response(JSON.stringify({ error: data.message }), {
+      if (data.errors || data.message) {
+        return new Response(JSON.stringify({ error: data.message || "Authorization failed" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 400,
         });
@@ -71,23 +83,45 @@ serve(async (req) => {
       const data = await response.json();
       console.log("Token refresh response:", data);
       
+      if (data.errors || data.message) {
+        return new Response(JSON.stringify({ error: data.message || "Token refresh failed" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        });
+      }
+      
       return new Response(JSON.stringify(data), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
     else if (action === "fetch_activities") {
       // Fetch athlete activities
-      const { access_token, page = 1, per_page = 30 } = await req.json();
       console.log(`Fetching activities page ${page}`);
       
+      if (!access_token) {
+        return new Response(JSON.stringify({ error: "Access token is required" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        });
+      }
+      
       const response = await fetch(
-        `https://www.strava.com/api/v3/athlete/activities?page=${page}&per_page=${per_page}`,
+        `https://www.strava.com/api/v3/athlete/activities?page=${page || 1}&per_page=${per_page || 30}`,
         {
           headers: {
             Authorization: `Bearer ${access_token}`,
           },
         }
       );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Error fetching activities: ${response.status}`, errorText);
+        return new Response(JSON.stringify({ error: `Strava API error: ${response.status}` }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: response.status,
+        });
+      }
 
       const data = await response.json();
       console.log(`Fetched ${data.length} activities`);

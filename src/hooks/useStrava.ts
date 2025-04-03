@@ -119,7 +119,8 @@ export function useStrava() {
           first_name: athlete.firstname,
           last_name: athlete.lastname,
           profile_picture: athlete.profile,
-          updated_at: new Date(),
+          // Fix: Convert Date to ISO string for the database
+          updated_at: new Date().toISOString(),
         })
         .eq("id", user?.id);
       
@@ -172,7 +173,8 @@ export function useStrava() {
           strava_access_token: access_token,
           strava_refresh_token: refresh_token,
           strava_token_expires_at: expires_at,
-          updated_at: new Date(),
+          // Fix: Convert Date to ISO string for the database
+          updated_at: new Date().toISOString(),
         })
         .eq("id", user?.id);
       
@@ -290,7 +292,8 @@ export function useStrava() {
           strava_access_token: null,
           strava_refresh_token: null,
           strava_token_expires_at: null,
-          updated_at: new Date(),
+          // Fix: Convert Date to ISO string for the database
+          updated_at: new Date().toISOString(),
         })
         .eq("id", user?.id);
       
