@@ -230,31 +230,38 @@ export function useStrava() {
       
       const stravaActivities = response.data;
       
-      // Save activities to our database
-      for (const activity of stravaActivities) {
-        const { error } = await supabase.from("activities").upsert(
-          {
-            user_id: user?.id,
-            strava_activity_id: activity.id,
-            name: activity.name,
-            activity_type: activity.type,
-            distance: activity.distance,
-            moving_time: activity.moving_time,
-            elapsed_time: activity.elapsed_time,
-            total_elevation_gain: activity.total_elevation_gain,
-            start_date: activity.start_date,
-            average_speed: activity.average_speed,
-            max_speed: activity.max_speed,
-            average_heartrate: activity.average_heartrate,
-            max_heartrate: activity.max_heartrate,
-            summary_polyline: activity.map?.summary_polyline,
-          },
-          { onConflict: "strava_activity_id" }
-        );
-        
-        if (error) {
-          console.error("Error saving activity:", error);
+      // Save activities to our database as a batch to avoid multiple individual requests
+      try {
+        const formattedActivities = stravaActivities.map(activity => ({
+          user_id: user?.id,
+          strava_activity_id: activity.id,
+          name: activity.name,
+          activity_type: activity.type,
+          distance: activity.distance,
+          moving_time: activity.moving_time,
+          elapsed_time: activity.elapsed_time,
+          total_elevation_gain: activity.total_elevation_gain,
+          start_date: activity.start_date,
+          average_speed: activity.average_speed,
+          max_speed: activity.max_speed,
+          average_heartrate: activity.average_heartrate,
+          max_heartrate: activity.max_heartrate,
+          summary_polyline: activity.map?.summary_polyline,
+        }));
+
+        if (formattedActivities.length > 0) {
+          const { error } = await supabase
+            .from("activities")
+            .upsert(formattedActivities, { onConflict: "strava_activity_id" });
+          
+          if (error) {
+            console.error("Error saving activities batch:", error);
+            // Continue with the function even if we couldn't save to DB
+          }
         }
+      } catch (error) {
+        console.error("Error during batch activity save:", error);
+        // Continue with the function even if we couldn't save to DB
       }
       
       // Load activities from our database
@@ -264,9 +271,13 @@ export function useStrava() {
         .eq("user_id", user?.id)
         .order("start_date", { ascending: false });
       
-      if (error) throw error;
-      
-      setActivities(dbActivities as unknown as StravaActivity[]);
+      if (error) {
+        console.error("Error fetching activities from database:", error);
+        // Just display the activities from Strava API if database fetch fails
+        setActivities(stravaActivities as unknown as StravaActivity[]);
+      } else {
+        setActivities(dbActivities as unknown as StravaActivity[]);
+      }
       
       return stravaActivities;
     } catch (error) {
