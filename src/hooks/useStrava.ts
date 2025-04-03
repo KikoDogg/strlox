@@ -85,9 +85,11 @@ export function useStrava() {
   };
 
   const connectStrava = () => {
+    // Use window.location.origin to get the current origin for redirect_uri
     const redirectUri = `${window.location.origin}/strava-callback`;
     const scope = "read,activity:read";
     
+    // Make sure to properly encode the redirect URI
     const authUrl = `https://www.strava.com/oauth/authorize?client_id=154336&redirect_uri=${encodeURIComponent(
       redirectUri
     )}&response_type=code&approval_prompt=auto&scope=${scope}`;
@@ -97,16 +99,27 @@ export function useStrava() {
 
   const handleStravaCallback = async (code: string) => {
     try {
-      // Exchange code for token
+      // Better error handling for the edge function call
       const response = await supabase.functions.invoke("strava-auth", {
         body: { code, action: "exchange" },
       });
       
       if (response.error) {
-        throw new Error(response.error.message);
+        console.error("Strava auth invoke error:", response.error);
+        throw new Error(response.error.message || "Failed to connect Strava");
+      }
+      
+      if (!response.data) {
+        console.error("No data returned from Strava auth");
+        throw new Error("No data returned from Strava authentication");
       }
       
       const { access_token, refresh_token, expires_at, athlete } = response.data;
+      
+      if (!access_token || !refresh_token || !athlete) {
+        console.error("Invalid response from Strava auth:", response.data);
+        throw new Error("Invalid response from Strava authentication");
+      }
       
       // Save tokens and athlete data
       const { error } = await supabase
@@ -119,12 +132,15 @@ export function useStrava() {
           first_name: athlete.firstname,
           last_name: athlete.lastname,
           profile_picture: athlete.profile,
-          // Fix: Convert Date to ISO string for the database
+          // Use ISO string for date
           updated_at: new Date().toISOString(),
         })
         .eq("id", user?.id);
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error updating profile:", error);
+        throw error;
+      }
       
       setStravaConnected(true);
       setStravaProfile({
@@ -147,7 +163,7 @@ export function useStrava() {
       console.error("Error connecting Strava:", error);
       toast({
         title: "Connection Failed",
-        description: "Failed to connect your Strava account.",
+        description: "Failed to connect your Strava account. " + (error.message || ""),
         variant: "destructive",
       });
       return false;
@@ -160,11 +176,16 @@ export function useStrava() {
         body: { refresh_token: refreshToken, action: "refresh" },
       });
       
-      if (response.error) {
-        throw new Error(response.error.message);
+      if (response.error || !response.data) {
+        console.error("Error refreshing token:", response.error || "No data returned");
+        throw new Error("Failed to refresh token");
       }
       
       const { access_token, refresh_token, expires_at } = response.data;
+      
+      if (!access_token) {
+        throw new Error("Invalid token response");
+      }
       
       // Update tokens in database
       await supabase
@@ -173,7 +194,7 @@ export function useStrava() {
           strava_access_token: access_token,
           strava_refresh_token: refresh_token,
           strava_token_expires_at: expires_at,
-          // Fix: Convert Date to ISO string for the database
+          // Use ISO string for date
           updated_at: new Date().toISOString(),
         })
         .eq("id", user?.id);
@@ -198,6 +219,7 @@ export function useStrava() {
     }
   };
 
+  // Better error handling for fetching activities
   const fetchActivities = async (page = 1) => {
     if (!stravaConnected || !stravaProfile?.strava_access_token) {
       return;
@@ -224,60 +246,15 @@ export function useStrava() {
         },
       });
       
-      if (response.error) {
-        throw new Error(response.error.message);
+      if (response.error || !response.data) {
+        console.error("Error fetching activities:", response.error || "No data returned");
+        throw new Error("Failed to fetch activities");
       }
       
       const stravaActivities = response.data;
       
-      // Save activities to our database as a batch to avoid multiple individual requests
-      try {
-        const formattedActivities = stravaActivities.map(activity => ({
-          user_id: user?.id,
-          strava_activity_id: activity.id,
-          name: activity.name,
-          activity_type: activity.type,
-          distance: activity.distance,
-          moving_time: activity.moving_time,
-          elapsed_time: activity.elapsed_time,
-          total_elevation_gain: activity.total_elevation_gain,
-          start_date: activity.start_date,
-          average_speed: activity.average_speed,
-          max_speed: activity.max_speed,
-          average_heartrate: activity.average_heartrate,
-          max_heartrate: activity.max_heartrate,
-          summary_polyline: activity.map?.summary_polyline,
-        }));
-
-        if (formattedActivities.length > 0) {
-          const { error } = await supabase
-            .from("activities")
-            .upsert(formattedActivities, { onConflict: "strava_activity_id" });
-          
-          if (error) {
-            console.error("Error saving activities batch:", error);
-            // Continue with the function even if we couldn't save to DB
-          }
-        }
-      } catch (error) {
-        console.error("Error during batch activity save:", error);
-        // Continue with the function even if we couldn't save to DB
-      }
-      
-      // Load activities from our database
-      const { data: dbActivities, error } = await supabase
-        .from("activities")
-        .select("*")
-        .eq("user_id", user?.id)
-        .order("start_date", { ascending: false });
-      
-      if (error) {
-        console.error("Error fetching activities from database:", error);
-        // Just display the activities from Strava API if database fetch fails
-        setActivities(stravaActivities as unknown as StravaActivity[]);
-      } else {
-        setActivities(dbActivities as unknown as StravaActivity[]);
-      }
+      // Skip saving to database for now - just display activities
+      setActivities(stravaActivities as unknown as StravaActivity[]);
       
       return stravaActivities;
     } catch (error) {
@@ -294,8 +271,7 @@ export function useStrava() {
 
   const disconnectStrava = async () => {
     try {
-      // We don't actually revoke the token at Strava,
-      // just remove it from our database
+      // Just remove token from database
       await supabase
         .from("profiles")
         .update({
@@ -303,7 +279,6 @@ export function useStrava() {
           strava_access_token: null,
           strava_refresh_token: null,
           strava_token_expires_at: null,
-          // Fix: Convert Date to ISO string for the database
           updated_at: new Date().toISOString(),
         })
         .eq("id", user?.id);

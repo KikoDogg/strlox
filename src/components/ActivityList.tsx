@@ -58,7 +58,7 @@ const ActivityList: React.FC<ActivityListProps> = ({ activities, isLoading }) =>
             <TableRow key={activity.id}>
               <TableCell>{formatDate(activity.start_date)}</TableCell>
               <TableCell className="font-medium">{activity.name}</TableCell>
-              <TableCell>{activity.activity_type}</TableCell>
+              <TableCell>{activity.type || activity.activity_type}</TableCell>
               <TableCell>{formatDistance(activity.distance)}</TableCell>
               <TableCell>{formatDuration(activity.moving_time)}</TableCell>
               <TableCell>{activity.total_elevation_gain}m</TableCell>
