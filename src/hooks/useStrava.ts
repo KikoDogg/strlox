@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import type { Database } from "@/integrations/supabase/types";
 
 export type StravaProfile = {
   id: number;
@@ -50,11 +51,15 @@ export function useStrava() {
   const loadStravaProfile = async () => {
     try {
       setIsLoading(true);
-      const { data: profile } = await supabase
+      const { data: profile, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", user?.id)
         .single();
+
+      if (error) {
+        throw error;
+      }
 
       if (profile?.strava_athlete_id) {
         setStravaConnected(true);
@@ -221,10 +226,10 @@ export function useStrava() {
         throw new Error(response.error.message);
       }
       
-      const activities = response.data;
+      const stravaActivities = response.data;
       
       // Save activities to our database
-      for (const activity of activities) {
+      for (const activity of stravaActivities) {
         const { error } = await supabase.from("activities").upsert(
           {
             user_id: user?.id,
@@ -259,9 +264,9 @@ export function useStrava() {
       
       if (error) throw error;
       
-      setActivities(dbActivities);
+      setActivities(dbActivities as unknown as StravaActivity[]);
       
-      return activities;
+      return stravaActivities;
     } catch (error) {
       console.error("Error fetching activities:", error);
       toast({
