@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -63,11 +64,12 @@ export function GarminConnect() {
 
   const loadGarminCredentials = async () => {
     try {
-      const { data, error } = await supabase
-        .from('garmin_credentials')
+      // Use type assertion to bypass TypeScript checking for table name
+      const { data, error } = await (supabase
+        .from('garmin_credentials' as any)
         .select('*')
         .eq('user_id', user?.id)
-        .single();
+        .single() as any);
 
       if (error) {
         if (error.code !== "PGRST116") {
@@ -79,6 +81,7 @@ export function GarminConnect() {
 
       if (data) {
         setGarminConnected(true);
+        // Use type assertion to convert data to GarminCredentials
         setGarminCredentials(data as GarminCredentials);
         form.setValue("email", data.email);
       }
@@ -139,10 +142,11 @@ export function GarminConnect() {
 
     setIsLoading(true);
     try {
-      const { error } = await supabase
-        .from('garmin_credentials')
+      // Use type assertion for Supabase client
+      const { error } = await (supabase
+        .from('garmin_credentials' as any)
         .delete()
-        .eq('id', garminCredentials.id);
+        .eq('id', garminCredentials.id) as any);
 
       if (error) throw error;
 
