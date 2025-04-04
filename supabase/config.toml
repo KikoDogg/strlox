@@ -1,5 +1,17 @@
 
 project_id = "erehmsusecavzasuxjas"
 
-[functions.strava-auth]
-verify_jwt = false
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage"]
+
+[db]
+port = 54322
+
+[studio]
+enabled = true
+port = 54323
+
+[functions.garmin-auth]
+verify_jwt = true

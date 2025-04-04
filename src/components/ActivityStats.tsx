@@ -1,10 +1,9 @@
 
 import React, { useMemo } from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StravaActivity } from "@/hooks/useStrava";
-import { CalendarDays, Map, MoveRight, Timer, TrendingUp } from "lucide-react";
+import { CalendarDays, Map, Timer, TrendingUp } from "lucide-react";
 import StatsCard from "@/components/StatsCard";
 
 type ActivityStatsProps = {
@@ -41,26 +40,38 @@ const ActivityStats: React.FC<ActivityStatsProps> = ({ activities }) => {
   const chartData = useMemo(() => {
     if (!activities || activities.length === 0) return [];
 
-    // Group by month
-    const byMonth: Record<string, { distance: number; count: number }> = {};
+    // Process activities by day
+    const byDay = {};
     activities.forEach(activity => {
       const date = new Date(activity.start_date);
-      const monthYear = `${date.getMonth() + 1}/${date.getFullYear()}`;
+      const dayKey = date.toISOString().split('T')[0]; // YYYY-MM-DD format
       
-      if (!byMonth[monthYear]) {
-        byMonth[monthYear] = { distance: 0, count: 0 };
+      if (!byDay[dayKey]) {
+        byDay[dayKey] = { 
+          date: dayKey, 
+          distance: 0, 
+          duration: 0, 
+          elevation: 0,
+          count: 0 
+        };
       }
       
-      byMonth[monthYear].distance += activity.distance / 1000; // Convert to km
-      byMonth[monthYear].count += 1;
+      byDay[dayKey].distance += activity.distance / 1000; // Convert to km
+      byDay[dayKey].duration += activity.moving_time / 3600; // Convert to hours
+      byDay[dayKey].elevation += activity.total_elevation_gain;
+      byDay[dayKey].count += 1;
     });
 
-    // Convert to array
-    return Object.entries(byMonth).map(([month, data]) => ({
-      month,
-      distance: Number(data.distance.toFixed(1)),
-      count: data.count,
-    }));
+    // Convert to array and sort by date
+    return Object.values(byDay)
+      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .map((day: any) => ({
+        ...day,
+        distance: Number(day.distance.toFixed(1)),
+        duration: Number(day.duration.toFixed(1)),
+        elevation: Math.round(day.elevation),
+        dateFormatted: new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      }));
   }, [activities]);
 
   return (
@@ -69,68 +80,109 @@ const ActivityStats: React.FC<ActivityStatsProps> = ({ activities }) => {
         <StatsCard 
           title="Total Activities"
           value={stats.totalActivities}
-          icon={<CalendarDays />}
+          icon={<CalendarDays className="text-orange-500" />}
         />
         <StatsCard 
           title="Total Distance"
           value={`${(stats.totalDistance / 1000).toFixed(1)} km`}
-          icon={<Map />}
+          icon={<Map className="text-orange-500" />}
         />
         <StatsCard 
           title="Total Time"
           value={`${Math.floor(stats.totalDuration / 3600)} hours`}
-          icon={<Timer />}
+          icon={<Timer className="text-orange-500" />}
         />
         <StatsCard 
           title="Total Elevation"
           value={`${stats.totalElevation.toFixed(0)} m`}
-          icon={<TrendingUp />}
+          icon={<TrendingUp className="text-orange-500" />}
         />
       </div>
       
-      <Card>
-        <CardHeader>
-          <CardTitle>Monthly Distance</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-4">
-          <div className="h-[300px]">
-            <ChartContainer
-              config={{
-                distance: {
-                  label: "Distance (km)",
-                  color: "#3b82f6", // Blue
-                },
-                count: {
-                  label: "Activities",
-                  color: "#10b981", // Green
-                },
-              }}
-            >
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Distance Over Time</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+                  <XAxis 
+                    dataKey="dateFormatted" 
+                    tick={{ fontSize: 12 }}
+                    tickLine={false}
+                  />
+                  <YAxis 
+                    tick={{ fontSize: 12 }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) => `${value} km`}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: "#fff", 
+                      border: "1px solid #ddd",
+                      borderRadius: "4px",
+                      fontSize: "12px"
+                    }}
+                    formatter={(value: any) => [`${value} km`, "Distance"]}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="distance" 
+                    stroke="#f97316" 
+                    strokeWidth={2}
+                    dot={{ fill: "#f97316", r: 4 }}
+                    activeDot={{ fill: "#ea580c", r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Elevation Gain</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis yAxisId="left" orientation="left" stroke="#3b82f6" />
-                  <YAxis yAxisId="right" orientation="right" stroke="#10b981" />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar 
-                    yAxisId="left"
-                    dataKey="distance" 
-                    name="distance"
-                    fill="var(--color-distance, #3b82f6)" 
+                  <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+                  <XAxis 
+                    dataKey="dateFormatted" 
+                    tick={{ fontSize: 12 }}
+                    tickLine={false}
+                  />
+                  <YAxis 
+                    tick={{ fontSize: 12 }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) => `${value} m`}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: "#fff", 
+                      border: "1px solid #ddd",
+                      borderRadius: "4px",
+                      fontSize: "12px"
+                    }}
+                    formatter={(value: any) => [`${value} m`, "Elevation"]}
                   />
                   <Bar 
-                    yAxisId="right"
-                    dataKey="count" 
-                    name="count"
-                    fill="var(--color-count, #10b981)" 
+                    dataKey="elevation" 
+                    fill="#f97316" 
+                    radius={[4, 4, 0, 0]}
                   />
                 </BarChart>
               </ResponsiveContainer>
-            </ChartContainer>
-          </div>
-        </CardContent>
-      </Card>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
