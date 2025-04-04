@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -27,6 +26,18 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 
+// Define an interface for Garmin credentials that matches what we're storing
+interface GarminCredentials {
+  id: string;
+  user_id: string;
+  email: string;
+  password_encrypted?: string;
+  normalized_email: string;
+  last_sync?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 const formSchema = z.object({
   email: z.string().email("Must be a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
@@ -36,7 +47,7 @@ export function GarminConnect() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [garminConnected, setGarminConnected] = useState(false);
-  const [garminCredentials, setGarminCredentials] = useState<any>(null);
+  const [garminCredentials, setGarminCredentials] = useState<GarminCredentials | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -54,10 +65,11 @@ export function GarminConnect() {
 
   const loadGarminCredentials = async () => {
     try {
+      // Use explicit typing with the response
       const { data, error } = await supabase
-        .from("garmin_credentials")
-        .select("*")
-        .eq("user_id", user?.id)
+        .from('garmin_credentials')
+        .select('*')
+        .eq('user_id', user?.id)
         .single();
 
       if (error) {
@@ -70,7 +82,7 @@ export function GarminConnect() {
 
       if (data) {
         setGarminConnected(true);
-        setGarminCredentials(data);
+        setGarminCredentials(data as GarminCredentials);
         form.setValue("email", data.email);
       }
     } catch (error) {
@@ -131,10 +143,11 @@ export function GarminConnect() {
 
     setIsLoading(true);
     try {
+      // Use direct string value with explicit type safety
       const { error } = await supabase
-        .from("garmin_credentials")
+        .from('garmin_credentials')
         .delete()
-        .eq("id", garminCredentials.id);
+        .eq('id', garminCredentials.id);
 
       if (error) throw error;
 
