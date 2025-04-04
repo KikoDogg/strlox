@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,7 +25,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 
-// Define an interface for Garmin credentials that matches what we're storing
 interface GarminCredentials {
   id: string;
   user_id: string;
@@ -65,7 +63,6 @@ export function GarminConnect() {
 
   const loadGarminCredentials = async () => {
     try {
-      // Use explicit typing with the response
       const { data, error } = await supabase
         .from('garmin_credentials')
         .select('*')
@@ -73,7 +70,7 @@ export function GarminConnect() {
         .single();
 
       if (error) {
-        if (error.code !== "PGRST116") { // Not found error
+        if (error.code !== "PGRST116") {
           console.error("Error fetching Garmin credentials:", error);
         }
         setGarminConnected(false);
@@ -103,7 +100,6 @@ export function GarminConnect() {
     setIsLoading(true);
 
     try {
-      // Normalize email for endpoints
       const normalizedEmail = values.email.replace(/[@.]/g, "").toLowerCase();
 
       const { error } = await supabase.functions.invoke("garmin-auth", {
@@ -143,7 +139,6 @@ export function GarminConnect() {
 
     setIsLoading(true);
     try {
-      // Use direct string value with explicit type safety
       const { error } = await supabase
         .from('garmin_credentials')
         .delete()

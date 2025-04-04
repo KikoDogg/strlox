@@ -66,6 +66,39 @@ export type Database = {
         }
         Relationships: []
       }
+      garmin_credentials: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          last_sync: string | null
+          normalized_email: string
+          password_encrypted: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+          last_sync?: string | null
+          normalized_email: string
+          password_encrypted?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          last_sync?: string | null
+          normalized_email?: string
+          password_encrypted?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string | null
