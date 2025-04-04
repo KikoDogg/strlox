@@ -1,199 +1,123 @@
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useStrava } from "@/hooks/useStrava";
 import { useAuth } from "@/context/AuthContext";
-import ActivityList from "@/components/ActivityList";
-import ActivityStats from "@/components/ActivityStats";
-import GarminConnect from "@/components/GarminConnect";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent } from "@/components/ui/card";
-import { LogOut, RefreshCcw } from "lucide-react";
+import { useStrava } from "@/hooks/useStrava";
+import { ActivityList } from "@/components/ActivityList";
+import { ActivityStats } from "@/components/ActivityStats";
+import { GarminConnect } from "@/components/GarminConnect";
+import { ChangePassword } from "@/components/ChangePassword";
 
-const Dashboard: React.FC = () => {
-  const { user, isLoading: authLoading, signOut } = useAuth();
-  const {
-    stravaConnected,
-    stravaProfile,
-    isLoading,
-    activities,
-    isLoadingActivities,
-    fetchActivities,
-    connectStrava,
-    disconnectStrava,
-  } = useStrava();
-  const [activeTab, setActiveTab] = useState("overview");
+const Dashboard = () => {
+  const { user, isLoading, signOut } = useAuth();
   const navigate = useNavigate();
+  const { stravaConnected, connectStrava, activities, fetchActivities, isLoadingActivities } = useStrava();
+  const [activeTab, setActiveTab] = useState("activities");
 
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (!isLoading && !user) {
       navigate("/login");
     }
-  }, [user, authLoading, navigate]);
+  }, [user, isLoading, navigate]);
 
   useEffect(() => {
     if (stravaConnected) {
       fetchActivities();
     }
-  }, [stravaConnected]);
+  }, [stravaConnected, fetchActivities]);
 
-  const handleRefresh = () => {
-    fetchActivities();
-  };
-
-  if (authLoading || isLoading) {
+  if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-orange-500 border-t-transparent"></div>
+      <div className="flex h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-orange-500 border-t-transparent"></div>
       </div>
     );
   }
 
-  return (
-    <div className="container mx-auto p-4">
-      <div className="mb-8 flex flex-col items-center justify-between gap-4 md:flex-row">
-        <div>
-          {stravaConnected && stravaProfile ? (
-            <div className="flex items-center gap-4">
-              {stravaProfile.profile_picture && (
-                <img
-                  src={stravaProfile.profile_picture}
-                  alt="Profile"
-                  className="h-16 w-16 rounded-full border-2 border-orange-500"
-                />
-              )}
-              <div>
-                <h1 className="text-2xl font-bold">
-                  Welcome, {stravaProfile.first_name} {stravaProfile.last_name}
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  Manage your fitness data
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div>
-              <h1 className="text-2xl font-bold">Welcome to Your Fitness Dashboard</h1>
-              <p className="text-muted-foreground">
-                Connect your accounts to see your activity data
-              </p>
-            </div>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {stravaConnected ? (
-            <>
-              <Button onClick={handleRefresh} disabled={isLoadingActivities} className="bg-orange-500 hover:bg-orange-600">
-                <RefreshCcw className="mr-2 h-4 w-4" />
-                Refresh Data
-              </Button>
-              <Button variant="outline" onClick={disconnectStrava}>
-                Disconnect Strava
-              </Button>
-            </>
-          ) : (
-            <Button onClick={connectStrava} className="bg-orange-500 hover:bg-orange-600">
-              Connect with Strava
-            </Button>
-          )}
-          <Button variant="destructive" onClick={signOut}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Sign Out
-          </Button>
-        </div>
-      </div>
+  if (!user) {
+    return null;
+  }
 
-      <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab} className="mb-8">
-        <TabsList className="w-full max-w-md mb-6">
-          <TabsTrigger value="overview" className="flex-1">Overview</TabsTrigger>
-          <TabsTrigger value="connections" className="flex-1">Connections</TabsTrigger>
-          <TabsTrigger value="activities" className="flex-1">Activities</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="overview">
-          {stravaConnected && activities && activities.length > 0 ? (
-            <ActivityStats activities={activities} />
-          ) : (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <h3 className="text-lg font-medium mb-2">Connect your accounts</h3>
-                <p className="text-muted-foreground mb-4">
-                  Connect your Strava or Garmin account to see your activities and stats
-                </p>
-                <div className="flex justify-center gap-4">
-                  {!stravaConnected && (
-                    <Button onClick={connectStrava} className="bg-orange-500 hover:bg-orange-600">
-                      Connect Strava
-                    </Button>
-                  )}
-                  <Button onClick={() => setActiveTab("connections")} variant="outline">
-                    Manage Connections
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-        
-        <TabsContent value="connections">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardContent className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Strava Connection</h3>
-                {stravaConnected ? (
-                  <div className="space-y-4">
-                    <div className="rounded-md bg-green-50 p-4">
-                      <div className="flex">
-                        <div className="flex-shrink-0">
-                          <div className="h-5 w-5 rounded-full bg-green-400 flex items-center justify-center">
-                            <svg className="h-3 w-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                        </div>
-                        <div className="ml-3">
-                          <p className="text-sm font-medium text-green-800">
-                            Connected to Strava as {stravaProfile?.first_name} {stravaProfile?.last_name}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button onClick={handleRefresh} disabled={isLoadingActivities} className="bg-orange-500 hover:bg-orange-600">
-                        <RefreshCcw className="mr-2 h-4 w-4" />
-                        Refresh
-                      </Button>
-                      <Button variant="outline" onClick={disconnectStrava}>
-                        Disconnect
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <p className="text-sm text-gray-500">
-                      Connect your Strava account to import your activities
-                    </p>
-                    <Button onClick={connectStrava} className="bg-orange-500 hover:bg-orange-600">
-                      Connect with Strava
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-            
-            <GarminConnect />
+  return (
+    <div className="flex min-h-screen flex-col">
+      <header className="sticky top-0 z-50 border-b bg-white">
+        <div className="container mx-auto flex h-16 items-center justify-between px-4">
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-bold text-orange-600">Strava Dashboard</h1>
           </div>
-        </TabsContent>
-        
-        <TabsContent value="activities">
-          <h2 className="mb-4 text-xl font-semibold">Your Activities</h2>
-          <ActivityList
-            activities={activities}
-            isLoading={isLoadingActivities}
-          />
-        </TabsContent>
-      </Tabs>
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-medium text-gray-600">{user.email}</span>
+            <button
+              onClick={() => signOut()}
+              className="rounded-md bg-orange-100 px-3 py-1.5 text-sm font-medium text-orange-600 transition-colors hover:bg-orange-200"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+      </header>
+      <main className="container mx-auto flex-1 px-4 py-8">
+        <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="activities">Activities</TabsTrigger>
+            <TabsTrigger value="connect">Accounts</TabsTrigger>
+            <TabsTrigger value="garmin">Garmin</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
+          </TabsList>
+          <TabsContent value="activities" className="space-y-8">
+            {stravaConnected ? (
+              <>
+                <ActivityStats activities={activities} />
+                <ActivityList activities={activities} isLoading={isLoadingActivities} />
+              </>
+            ) : (
+              <div className="rounded-lg border border-gray-200 bg-white p-6 text-center shadow">
+                <h3 className="mb-4 text-lg font-semibold">Connect Your Strava Account</h3>
+                <p className="mb-4 text-gray-600">
+                  Connect your Strava account to view your activities and stats.
+                </p>
+                <button
+                  onClick={connectStrava}
+                  className="rounded-md bg-orange-500 px-4 py-2 text-white hover:bg-orange-600"
+                >
+                  Connect Strava
+                </button>
+              </div>
+            )}
+          </TabsContent>
+          <TabsContent value="connect">
+            <div className="rounded-lg border border-gray-200 bg-white p-6 text-center shadow">
+              {stravaConnected ? (
+                <div className="text-green-600">
+                  Your Strava account is connected. 🎉
+                </div>
+              ) : (
+                <div>
+                  <h3 className="mb-4 text-lg font-semibold">Connect Your Strava Account</h3>
+                  <p className="mb-4 text-gray-600">
+                    Connect your Strava account to view your activities and stats.
+                  </p>
+                  <button
+                    onClick={connectStrava}
+                    className="rounded-md bg-orange-500 px-4 py-2 text-white hover:bg-orange-600"
+                  >
+                    Connect Strava
+                  </button>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+          <TabsContent value="garmin">
+            <GarminConnect />
+          </TabsContent>
+          <TabsContent value="settings">
+            <div className="space-y-6">
+              <ChangePassword />
+            </div>
+          </TabsContent>
+        </Tabs>
+      </main>
     </div>
   );
 };

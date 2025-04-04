@@ -7,6 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 const Login: React.FC = () => {
   const { user, isLoading } = useAuth();
@@ -15,6 +24,9 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
 
   useEffect(() => {
     if (user && !isLoading) {
@@ -60,6 +72,43 @@ const Login: React.FC = () => {
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetEmail) {
+      toast({
+        title: "Error",
+        description: "Please enter your email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsResetting(true);
+    
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: `${window.location.origin}/login`,
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Password reset email sent",
+        description: "Check your email for the password reset link",
+      });
+      
+      setResetDialogOpen(false);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -123,7 +172,7 @@ const Login: React.FC = () => {
           </Button>
         </form>
 
-        <div className="mt-6 text-center">
+        <div className="mt-6 text-center space-y-4">
           <button
             type="button"
             onClick={() => setIsSignUp(!isSignUp)}
@@ -133,6 +182,53 @@ const Login: React.FC = () => {
               ? "Already have an account? Sign In"
               : "Don't have an account? Sign Up"}
           </button>
+          
+          {!isSignUp && (
+            <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+              <DialogTrigger asChild>
+                <button
+                  type="button"
+                  className="block w-full text-sm text-orange-600 hover:underline"
+                >
+                  Forgot your password?
+                </button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Reset Your Password</DialogTitle>
+                  <DialogDescription>
+                    Enter your email address and we'll send you a link to reset your password.
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleResetPassword} className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="reset-email">Email</Label>
+                    <Input
+                      id="reset-email"
+                      type="email"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      placeholder="your.email@example.com"
+                      required
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      type="submit"
+                      className="bg-orange-500 hover:bg-orange-600"
+                      disabled={isResetting}
+                    >
+                      {isResetting ? (
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                      ) : (
+                        "Send Reset Link"
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </div>
     </div>

@@ -22,7 +22,7 @@ serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { action, email, password, normalized_email, user_id } = await req.json();
+    const { action, email, password, normalized_email } = await req.json();
 
     if (action === "setup") {
       if (!email || !password || !normalized_email) {
@@ -58,7 +58,7 @@ serve(async (req) => {
       // NOTE: This is NOT secure for production use
       const password_encrypted = btoa(password);
 
-      // Store Garmin credentials
+      // Store Garmin credentials - Now we're using upsert with a unique constraint
       const { error: insertError } = await supabase
         .from("garmin_credentials")
         .upsert({
@@ -68,13 +68,13 @@ serve(async (req) => {
           normalized_email,
           updated_at: new Date().toISOString(),
         }, {
-          onConflict: "user_id"
+          onConflict: "user_id", // Specify the column that has a unique constraint
         });
 
       if (insertError) {
         console.error("Error storing Garmin credentials:", insertError);
         return new Response(
-          JSON.stringify({ error: "Failed to store credentials" }),
+          JSON.stringify({ error: "Failed to store credentials: " + insertError.message }),
           { 
             status: 500, 
             headers: { ...corsHeaders, "Content-Type": "application/json" } 
@@ -133,7 +133,7 @@ serve(async (req) => {
       if (updateError) {
         console.error("Error updating Garmin credentials:", updateError);
         return new Response(
-          JSON.stringify({ error: "Failed to update sync status" }),
+          JSON.stringify({ error: "Failed to update sync status: " + updateError.message }),
           { 
             status: 500, 
             headers: { ...corsHeaders, "Content-Type": "application/json" } 
