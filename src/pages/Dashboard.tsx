@@ -4,8 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStrava } from "@/hooks/useStrava";
-import { ActivityList } from "@/components/ActivityList";
-import { ActivityStats } from "@/components/ActivityStats";
+import ActivityList from "@/components/ActivityList";
+import ActivityStats from "@/components/ActivityStats";
 import { GarminConnect } from "@/components/GarminConnect";
 import { ChangePassword } from "@/components/ChangePassword";
 
